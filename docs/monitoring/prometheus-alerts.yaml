@@ -1,0 +1,52 @@
+groups:
+  - name: aurora-iam-slo
+    interval: 30s
+    rules:
+      - alert: IAMHTTPP95LatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(aurora_iam_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 0.4
+        for: 10m
+        labels:
+          severity: warning
+          service: aurora-iam
+        annotations:
+          summary: "Aurora IAM p95 latency is high"
+          description: "p95 HTTP latency has been above 400ms for 10 minutes."
+
+      - alert: IAMHTTP5xxRateHigh
+        expr: |
+          (
+            sum(rate(aurora_iam_http_requests_total{status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(aurora_iam_http_requests_total[5m])), 1)
+          ) > 0.02
+        for: 10m
+        labels:
+          severity: critical
+          service: aurora-iam
+        annotations:
+          summary: "Aurora IAM 5xx ratio is high"
+          description: "5xx ratio is above 2% for 10 minutes."
+
+      - alert: IAMAuthFailureSpike
+        expr: increase(aurora_iam_auth_attempts_total{result="failure"}[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: aurora-iam
+        annotations:
+          summary: "Aurora IAM auth failures spiking"
+          description: "Auth failures exceeded 100 in 5 minutes."
+
+      - alert: IAMRefreshReplaySpike
+        expr: increase(aurora_iam_auth_refresh_replay_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: aurora-iam
+        annotations:
+          summary: "Aurora IAM refresh replay detected"
+          description: "Refresh replay detections exceeded 10 in 5 minutes."

@@ -1,0 +1,90 @@
+services:
+  psql:
+    image: postgres:16-alpine
+    container_name: aurora-psql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PSQL_DBNAME}
+      POSTGRES_USER: ${PSQL_USER}
+      POSTGRES_PASSWORD: ${PSQL_PASSWORD}
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/tls/postgres/server.crt
+      - -c
+      - ssl_key_file=/tls/postgres/server.key
+      - -c
+      - ssl_ca_file=/tls/ca/ca.crt
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - psql-data:/var/lib/postgresql/data
+      - ./.testinfra/tls/ca:/tls/ca:ro
+      - ./.testinfra/tls/postgres:/tls/postgres:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: aurora-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - redis-server
+      - --port
+      - "0"
+      - --tls-port
+      - "6379"
+      - --tls-cert-file
+      - /tls/redis/server.crt
+      - --tls-key-file
+      - /tls/redis/server.key
+      - --tls-ca-cert-file
+      - /tls/ca/ca.crt
+      - --tls-auth-clients
+      - "no"
+      - --requirepass
+      - ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:16379:6379"
+    volumes:
+      - redis-data:/data
+      - ./.testinfra/tls/ca:/tls/ca:ro
+      - ./.testinfra/tls/redis:/tls/redis:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --tls --cacert /tls/ca/ca.crt -a $$REDIS_PASSWORD -h 127.0.0.1 -p 6379 ping | grep PONG",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  victoria:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: aurora-victoria
+    restart: unless-stopped
+    command:
+      - -retentionPeriod=30d
+    ports:
+      - "127.0.0.1:18428:8428"
+    volumes:
+      - victoria-data:/storage
+
+volumes:
+  psql-data:
+  redis-data:
+  victoria-data:

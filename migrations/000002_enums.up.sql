@@ -1,0 +1,1 @@
+-- No custom enums currently used (using check constraints instead)

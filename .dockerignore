@@ -1,0 +1,7 @@
+.git
+.gitignore
+.env
+*.log
+package/*.service
+ui/node_modules
+ui/out

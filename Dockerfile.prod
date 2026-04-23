@@ -1,0 +1,23 @@
+FROM golang:1.26-alpine AS go-builder
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags='-s -w' -o /out/controlplane ./cmd/server/main.go
+
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata && \
+    addgroup -S app && adduser -S -G app app
+
+WORKDIR /app
+COPY --from=go-builder /out/controlplane /usr/local/bin/controlplane
+
+USER app
+EXPOSE 8080 9090
+
+ENTRYPOINT ["/usr/local/bin/controlplane"]

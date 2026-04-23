@@ -1,0 +1,23 @@
+[Unit]
+Description=Aurora IAM Service
+After=network.target postgresql.service redis.service
+ConditionPathExists=/usr/local/bin/aurora-iam
+
+[Service]
+Type=simple
+User=aurora-iam
+Group=aurora
+EnvironmentFile=/etc/aurora-iam/.env
+WorkingDirectory=/usr/local/bin
+ExecStart=/usr/local/bin/aurora-iam
+Restart=on-failure
+RestartSec=5s
+
+# Security configurations
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,70 @@
+# ------------------------------
+# OS / Editor
+# ------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+.idea/
+.vscode/
+*.iml
+
+# ------------------------------
+# Go / Build
+# ------------------------------
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.pprof
+coverage.*
+*.coverprofile
+profile.cov
+go.work
+go.work.sum
+
+# Root binary output
+bin/
+
+# ------------------------------
+# Environment / Local config
+# ------------------------------
+.env
+.env.*
+!.env.example
+!.env.*.example
+.local/
+
+# ------------------------------
+# Runtime / Logs / PIDs
+# ------------------------------
+*.log
+*.pid
+*.pid.lock
+.testinfra/
+
+# ------------------------------
+# Frontend (ui/)
+# ------------------------------
+ui/node_modules/
+ui/.next/
+ui/out/
+ui/dist/
+ui/.turbo/
+ui/.cache/
+ui/.swc/
+ui/.vercel/
+ui/npm-debug.log*
+ui/yarn-debug.log*
+ui/yarn-error.log*
+ui/pnpm-debug.log*
+
+# Embedded frontend export artifact
+internal/http/dist/
