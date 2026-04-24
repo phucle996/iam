@@ -49,22 +49,3 @@ bin/
 *.pid
 *.pid.lock
 .testinfra/
-
-# ------------------------------
-# Frontend (ui/)
-# ------------------------------
-ui/node_modules/
-ui/.next/
-ui/out/
-ui/dist/
-ui/.turbo/
-ui/.cache/
-ui/.swc/
-ui/.vercel/
-ui/npm-debug.log*
-ui/yarn-debug.log*
-ui/yarn-error.log*
-ui/pnpm-debug.log*
-
-# Embedded frontend export artifact
-internal/http/dist/

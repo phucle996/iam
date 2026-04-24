@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"controlplane/pkg/apires"
+	"iam/pkg/apires"
 
 	"github.com/gin-gonic/gin"
 )

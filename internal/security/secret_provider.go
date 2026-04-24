@@ -6,10 +6,12 @@ import (
 )
 
 const (
-	SecretFamilyAccess   = "access"
-	SecretFamilyRefresh  = "refresh"
-	SecretFamilyOneTime  = "one_time"
-	SecretFamilyAdminAPI = "admin_api"
+	SecretFamilyAccess       = "access"
+	SecretFamilyRefresh      = "refresh"
+	SecretFamilyOneTime      = "one_time"
+	SecretFamilyAdminAPI     = "admin_api"
+	SecretFamilyOAuthAccess  = "oauth_access"
+	SecretFamilyOAuthRefresh = "oauth_refresh"
 )
 
 var (
@@ -35,5 +37,7 @@ func SecretFamilies() []string {
 		SecretFamilyRefresh,
 		SecretFamilyOneTime,
 		SecretFamilyAdminAPI,
+		SecretFamilyOAuthAccess,
+		SecretFamilyOAuthRefresh,
 	}
 }

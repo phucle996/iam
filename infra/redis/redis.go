@@ -2,11 +2,11 @@ package redis
 
 import (
 	"context"
-	"controlplane/internal/config"
-	"controlplane/internal/observability"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"iam/internal/config"
+	"iam/internal/observability"
 	"net"
 	"os"
 	"strings"

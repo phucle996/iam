@@ -2,8 +2,8 @@ package domainsvc
 
 import (
 	"context"
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/transport/http/middleware"
+	"iam/internal/domain/entity"
+	"iam/internal/transport/http/middleware"
 )
 
 // RbacService handles all RBAC operations with cache-aside.

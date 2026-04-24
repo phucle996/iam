@@ -2,7 +2,7 @@ package domainrepo
 
 import (
 	"context"
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // UserRepository defines data access methods for User and UserProfile.

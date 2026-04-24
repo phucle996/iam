@@ -1,7 +1,7 @@
 package model
 
 import (
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 	"time"
 )
 

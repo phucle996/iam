@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/transport/http/handler"
-	"controlplane/internal/transport/http/middleware"
-	reqdto "controlplane/internal/transport/http/request"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/logger"
+	"iam/internal/domain/entity"
+	"iam/internal/transport/http/handler"
+	"iam/internal/transport/http/middleware"
+	reqdto "iam/internal/transport/http/request"
+	"iam/pkg/errorx"
+	"iam/pkg/logger"
 	"errors"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +38,56 @@ type stubAuthHandlerService struct {
 	resetErr         error
 	logoutCalled     bool
 	logoutErr        error
+}
+
+type stubAdminAuthHandlerService struct {
+	loginCalled        bool
+	loginInput         entity.AdminLoginInput
+	loginResult        *entity.AdminLoginResult
+	loginErr           error
+	logoutCalled       bool
+	logoutToken        string
+	logoutErr          error
+	authorizeCalled    bool
+	authorizeInput     entity.AdminSessionAuthInput
+	authorizeResult    *entity.AdminSessionContext
+	authorizeResultErr error
+}
+
+func (s *stubAdminAuthHandlerService) EnsureBootstrapCredential(ctx context.Context) (*entity.AdminBootstrapResult, error) {
+	return &entity.AdminBootstrapResult{Created: false}, nil
+}
+func (s *stubAdminAuthHandlerService) Login(ctx context.Context, input entity.AdminLoginInput) (*entity.AdminLoginResult, error) {
+	s.loginCalled = true
+	s.loginInput = input
+	if s.loginResult != nil || s.loginErr != nil {
+		return s.loginResult, s.loginErr
+	}
+	return &entity.AdminLoginResult{
+		Admin: &entity.AdminUser{
+			ID:          "admin-1",
+			DisplayName: "System Admin",
+		},
+		SessionID:        "session-1",
+		SessionToken:     "session-token",
+		SessionExpiresAt: time.Now().UTC().Add(time.Hour),
+		DeviceID:         "device-1",
+		DeviceSecret:     "device-secret",
+		DeviceExpiresAt:  time.Now().UTC().Add(30 * 24 * time.Hour),
+	}, nil
+}
+func (s *stubAdminAuthHandlerService) AuthorizeSession(ctx context.Context, input entity.AdminSessionAuthInput) (*entity.AdminSessionContext, error) {
+	s.authorizeCalled = true
+	s.authorizeInput = input
+	if s.authorizeResult != nil || s.authorizeResultErr != nil {
+		return s.authorizeResult, s.authorizeResultErr
+	}
+	return &entity.AdminSessionContext{}, nil
+}
+func (s *stubAdminAuthHandlerService) Logout(ctx context.Context, sessionToken string) error {
+	s.logoutCalled = true
+	s.logoutToken = sessionToken
+	return s.logoutErr
 }
 
 func (s *stubAuthHandlerService) Login(ctx context.Context, username, password, deviceFingerprint, devicePublicKey, deviceKeyAlgorithm string) (*entity.LoginResult, error) {
@@ -248,14 +298,17 @@ func TestAuthHandlerWhoAmIReturnsFlatSession(t *testing.T) {
 	}
 }
 
-func TestAuthHandlerAdminLoginSetsAPITokenCookie(t *testing.T) {
+func TestAuthHandlerAdminLoginSetsSessionAndDeviceCookies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger.InitLogger()
 	svc := &stubAuthHandlerService{}
-	h := handler.NewAuthHandler(svc)
+	adminSvc := &stubAdminAuthHandlerService{}
+	h := handler.NewAuthHandlerWithAdmin(svc, adminSvc)
 
 	body, err := json.Marshal(gin.H{
-		"api_key": "admin-api-key-1",
+		"admin_key":       "admin-api-key-1",
+		"two_factor_code": "123456",
+		"trust_device":    true,
 	})
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
@@ -269,38 +322,49 @@ func TestAuthHandlerAdminLoginSetsAPITokenCookie(t *testing.T) {
 
 	h.AdminLogin(c)
 
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("expected 204 for successful admin login, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for successful admin login, got %d", w.Code)
 	}
-	if !svc.adminLoginCalled {
+	if !adminSvc.loginCalled {
 		t.Fatalf("expected admin login service to be called")
+	}
+	if adminSvc.loginInput.AdminKey != "admin-api-key-1" || adminSvc.loginInput.TwoFactorCode != "123456" || !adminSvc.loginInput.TrustDevice {
+		t.Fatalf("unexpected admin login input: %#v", adminSvc.loginInput)
 	}
 
 	resp := w.Result()
 	defer resp.Body.Close()
-	var apiTokenCookie *http.Cookie
+	cookies := map[string]*http.Cookie{}
 	for _, cookie := range resp.Cookies() {
-		if cookie.Name == "apitoken" {
-			apiTokenCookie = cookie
-			break
+		cookies[cookie.Name] = cookie
+	}
+	for _, name := range []string{
+		middleware.AdminSessionCookieName,
+		middleware.AdminDeviceIDCookieName,
+		middleware.AdminDeviceSecretCookieName,
+	} {
+		cookie := cookies[name]
+		if cookie == nil {
+			t.Fatalf("expected %s cookie to be set", name)
+		}
+		if !cookie.HttpOnly || !cookie.Secure || cookie.Path != "/" {
+			t.Fatalf("expected secure HttpOnly host cookie, got %#v", cookie)
 		}
 	}
-	if apiTokenCookie == nil {
-		t.Fatalf("expected apitoken cookie to be set")
-	}
-	if !apiTokenCookie.HttpOnly {
-		t.Fatalf("expected apitoken cookie to be HttpOnly")
+	if !bytes.Contains(w.Body.Bytes(), []byte(`"status":"ok"`)) {
+		t.Fatalf("expected ok response, got %s", w.Body.String())
 	}
 }
 
 func TestAuthHandlerAdminLoginInvalidKeyReturnsUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger.InitLogger()
-	svc := &stubAuthHandlerService{adminLoginErr: errorx.ErrAdminAPIKeyInvalid}
-	h := handler.NewAuthHandler(svc)
+	svc := &stubAuthHandlerService{}
+	adminSvc := &stubAdminAuthHandlerService{loginErr: errorx.ErrAdminAuthInvalid}
+	h := handler.NewAuthHandlerWithAdmin(svc, adminSvc)
 
 	body, err := json.Marshal(gin.H{
-		"api_key": "wrong-key",
+		"admin_key": "wrong-key",
 	})
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
@@ -317,7 +381,7 @@ func TestAuthHandlerAdminLoginInvalidKeyReturnsUnauthorized(t *testing.T) {
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for invalid admin key, got %d", w.Code)
 	}
-	if !bytes.Contains(w.Body.Bytes(), []byte("unauthorized")) {
+	if !bytes.Contains(w.Body.Bytes(), []byte("admin login failed")) {
 		t.Fatalf("expected generic unauthorized response, got %s", w.Body.String())
 	}
 }

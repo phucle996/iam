@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/config"
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/security"
-	"controlplane/internal/service"
+	"iam/internal/config"
+	"iam/internal/domain/entity"
+	"iam/internal/security"
+	"iam/internal/service"
 
 	"github.com/pquerna/otp/totp"
 )

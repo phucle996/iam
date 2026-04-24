@@ -17,6 +17,8 @@ type RegisterRequest struct {
 	RePassword  string  `json:"re_password" binding:"required,min=8"`
 }
 
-type AdminAPIKeyLoginRequest struct {
-	APIKey string `json:"api_key" binding:"required"`
+type AdminLoginRequest struct {
+	AdminKey      string `json:"admin_key" binding:"required"`
+	TwoFactorCode string `json:"two_factor_code,omitempty"`
+	TrustDevice   bool   `json:"trust_device,omitempty"`
 }

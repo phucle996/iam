@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"controlplane/internal/security"
-	"controlplane/pkg/apires"
-	"controlplane/pkg/logger"
+	"iam/internal/security"
+	"iam/pkg/apires"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"

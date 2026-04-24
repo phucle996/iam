@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"controlplane/internal/ratelimit"
-	"controlplane/pkg/apires"
+	"iam/internal/ratelimit"
+	"iam/pkg/apires"
 	"net"
 	"strings"
 	"time"

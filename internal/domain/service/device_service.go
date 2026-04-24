@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // DeviceService defines all business-logic contracts for device management.

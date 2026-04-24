@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/transport/http/handler"
-	"controlplane/internal/transport/http/middleware"
-	reqdto "controlplane/internal/transport/http/request"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/logger"
+	"iam/internal/domain/entity"
+	"iam/internal/transport/http/handler"
+	"iam/internal/transport/http/middleware"
+	reqdto "iam/internal/transport/http/request"
+	"iam/pkg/errorx"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )

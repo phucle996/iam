@@ -3,7 +3,7 @@ package domainsvc
 import (
 	"context"
 
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // AuthService defines primary authentication actions.

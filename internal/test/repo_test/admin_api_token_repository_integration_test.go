@@ -2,8 +2,8 @@ package repo_test
 
 import (
 	"context"
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/repository"
+	"iam/internal/domain/entity"
+	"iam/internal/repository"
 	"testing"
 	"time"
 )
@@ -26,11 +26,9 @@ func TestAdminAPITokenRepositoryCycle(t *testing.T) {
 	}
 
 	token := &entity.AdminAPIToken{
-		ID:          "admin-rt-1",
-		TokenHash:   "admin-hash-1",
-		CreatedAt:   time.Now().UTC(),
-		ExpiresAt:   time.Now().UTC().Add(15 * time.Minute),
-		IsBootstrap: false,
+		ID:        "admin-rt-1",
+		TokenHash: "admin-hash-1",
+		CreatedAt: time.Now().UTC(),
 	}
 
 	if err := repo.CreateAdminAPIToken(ctx, token); err != nil {

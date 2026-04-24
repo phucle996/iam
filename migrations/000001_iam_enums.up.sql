@@ -1,0 +1,2 @@
+-- IAM Enums and Types
+-- (Currently using check constraints, but reserved for future custom types)

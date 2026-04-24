@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"controlplane/internal/config"
-	"controlplane/internal/domain/entity"
-	domainrepo "controlplane/internal/domain/repository"
+	"iam/internal/config"
+	"iam/internal/domain/entity"
+	domainrepo "iam/internal/domain/repository"
 
-	"controlplane/internal/security"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/id"
+	"iam/internal/security"
+	"iam/pkg/errorx"
+	"iam/pkg/id"
 
 	"github.com/redis/go-redis/v9"
 )

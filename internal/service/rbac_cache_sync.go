@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"controlplane/internal/transport/http/middleware"
+	"iam/internal/transport/http/middleware"
 	"encoding/json"
 	"errors"
 	"fmt"

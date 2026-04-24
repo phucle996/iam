@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"controlplane/internal/config"
-	"controlplane/internal/domain/entity"
-	domainrepo "controlplane/internal/domain/repository"
-	domainsvc "controlplane/internal/domain/service"
-	"controlplane/internal/security"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/id"
+	"iam/internal/config"
+	"iam/internal/domain/entity"
+	domainrepo "iam/internal/domain/repository"
+	domainsvc "iam/internal/domain/service"
+	"iam/internal/security"
+	"iam/pkg/errorx"
+	"iam/pkg/id"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -512,10 +512,6 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 
 // ResetPassword validates the one-time reset token and replaces the user's password.
 func (s *AuthService) ResetPassword(ctx context.Context, rawToken, newPassword string) error {
-	if s == nil || s.cfg == nil || s.rdb == nil || s.repo == nil || s.tokenSvc == nil {
-		return errorx.ErrResetFailed
-	}
-
 	rawToken = strings.TrimSpace(rawToken)
 	if rawToken == "" {
 		return errorx.ErrResetTokenInvalid

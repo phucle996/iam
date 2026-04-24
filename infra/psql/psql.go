@@ -2,9 +2,9 @@ package psql
 
 import (
 	"context"
-	"controlplane/internal/config"
-	"controlplane/internal/observability"
 	"fmt"
+	"iam/internal/config"
+	"iam/internal/observability"
 	"strings"
 	"time"
 

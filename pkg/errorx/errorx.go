@@ -46,6 +46,9 @@ var (
 	// Admin API key login
 	ErrAdminAPIKeyInvalid   = errors.New("admin api key is invalid")
 	ErrAdminAPIKeyAuthError = errors.New("admin api key auth unavailable")
+	ErrAdminAuthInvalid     = errors.New("admin authentication failed")
+	ErrAdminSessionInvalid  = errors.New("admin session invalid")
+	ErrAdminDeviceInvalid   = errors.New("admin device invalid")
 
 	// MFA
 	ErrMfaSettingNotFound   = errors.New("mfa setting not found")
@@ -61,4 +64,23 @@ var (
 	ErrRoleNotFound       = errors.New("role not found")
 	ErrPermissionNotFound = errors.New("permission not found")
 	ErrRoleAlreadyExists  = errors.New("role already exists")
+
+	// OAuth
+	ErrOAuthInvalidRequest       = errors.New("oauth invalid request")
+	ErrOAuthInvalidClient        = errors.New("oauth invalid client")
+	ErrOAuthInvalidScope         = errors.New("oauth invalid scope")
+	ErrOAuthInvalidGrant         = errors.New("oauth invalid grant")
+	ErrOAuthInvalidRedirectURI   = errors.New("oauth invalid redirect uri")
+	ErrOAuthInvalidPKCE          = errors.New("oauth invalid pkce")
+	ErrOAuthUnsupportedGrantType = errors.New("oauth unsupported grant type")
+	ErrOAuthUnsupportedRespType  = errors.New("oauth unsupported response type")
+	ErrOAuthAccessDenied         = errors.New("oauth access denied")
+	ErrOAuthClientNotFound       = errors.New("oauth client not found")
+	ErrOAuthClientInactive       = errors.New("oauth client inactive")
+	ErrOAuthCodeNotFound         = errors.New("oauth authorization code not found")
+	ErrOAuthCodeConsumed         = errors.New("oauth authorization code consumed")
+	ErrOAuthCodeExpired          = errors.New("oauth authorization code expired")
+	ErrOAuthTokenExpired         = errors.New("oauth token expired")
+	ErrOAuthGrantNotFound        = errors.New("oauth grant not found")
+	ErrOAuthReplayDetected       = errors.New("oauth replay detected")
 )

@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"context"
-	"controlplane/pkg/apires"
+	"iam/pkg/apires"
 	"fmt"
 	"time"
 

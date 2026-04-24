@@ -7,14 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"controlplane/internal/domain/entity"
-	domainsvc "controlplane/internal/domain/service"
-	"controlplane/internal/transport/http/middleware"
-	reqdto "controlplane/internal/transport/http/request"
-	"controlplane/pkg/apires"
-	response "controlplane/pkg/apires"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/logger"
+	"iam/internal/domain/entity"
+	domainsvc "iam/internal/domain/service"
+	"iam/internal/transport/http/middleware"
+	reqdto "iam/internal/transport/http/request"
+	"iam/pkg/apires"
+	response "iam/pkg/apires"
+	"iam/pkg/errorx"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )

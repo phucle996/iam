@@ -4,21 +4,20 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
-	"controlplane/infra/redis"
-	"controlplane/internal/config"
-	"controlplane/internal/repository"
-	"controlplane/internal/service"
-	"controlplane/internal/transport/http/handler"
-	"controlplane/internal/transport/http/middleware"
+	"iam/infra/redis"
+	"iam/infra/telegram"
+	"iam/internal/app/bootstrap"
+	"iam/internal/config"
+	"iam/internal/repository"
+	"iam/internal/service"
+	"iam/internal/transport/http/handler"
+	"iam/internal/transport/http/middleware"
 
-	"controlplane/internal/ratelimit"
-	"controlplane/internal/security"
+	"iam/internal/ratelimit"
+	"iam/internal/security"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
@@ -39,6 +38,8 @@ type Module struct {
 	MfaRepo           *repository.MfaRepository
 	RbacRepo          *repository.RbacRepository
 	AdminAPITokenRepo *repository.AdminAPITokenRepository
+	AdminAuthRepo     *repository.AdminAuthRepository
+	OAuthRepo         *repository.OAuthRepository
 
 	// Services
 	DeviceService        *service.DeviceService
@@ -47,6 +48,8 @@ type Module struct {
 	AuthService          *service.AuthService
 	RbacService          *service.RbacService
 	AdminAPITokenService *service.AdminAPITokenService
+	AdminAuthService     *service.AdminAuthService
+	OAuthService         *service.OAuthService
 
 	// Handlers
 	HealthHandler *handler.HealthHandler
@@ -55,6 +58,7 @@ type Module struct {
 	TokenHandler  *handler.TokenHandler
 	MfaHandler    *handler.MfaHandler
 	RbacHandler   *handler.RbacHandler
+	OAuthHandler  *handler.OAuthHandler
 
 	stopCleanup context.CancelFunc
 	cleanupDone chan struct{}
@@ -86,6 +90,8 @@ func NewModule(
 	MfaRepo := repository.NewMfaRepository(db)
 	RbacRepo := repository.NewRbacRepository(db)
 	AdminAPITokenRepo := repository.NewAdminAPITokenRepository(db)
+	AdminAuthRepo := repository.NewAdminAuthRepository(db)
+	OAuthRepo := repository.NewOAuthRepository(db)
 	SecretRepo := repository.NewSecretRepository(db, cfg.Security.MasterKey)
 
 	// ── Services ──────────────────────────────────────────────────────────────
@@ -93,18 +99,21 @@ func NewModule(
 	TokenService := service.NewTokenService(TokenRepo, DeviceRepo, UserRepo, rdb, cfg, SecretRepo)
 	MfaService := service.NewMfaService(MfaRepo, UserRepo, rdb, cfg)
 	RbacService := service.NewRbacService(RbacRepo, registry, service.NewRedisRbacCacheBus(rdb))
-	AdminAPITokenService := service.NewAdminAPITokenService(AdminAPITokenRepo, SecretRepo, cfg)
+	AdminAPITokenService := service.NewAdminAPITokenService(AdminAPITokenRepo, SecretRepo)
+	AdminAuthService := service.NewAdminAuthService(AdminAuthRepo, SecretRepo, cfg)
+	OAuthService := service.NewOAuthService(OAuthRepo, SecretRepo, cfg, rdb)
 
 	AuthService := service.NewAuthService(UserRepo, DeviceService,
 		TokenService, MfaService, AdminAPITokenService, rdb, cfg, SecretRepo)
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
 	HealthHandler := handler.NewHealthHandler(db, rdb)
-	AuthHandler := handler.NewAuthHandler(AuthService)
+	AuthHandler := handler.NewAuthHandlerWithAdmin(AuthService, AdminAuthService)
 	DeviceHandler := handler.NewDeviceHandler(DeviceService)
 	TokenHandler := handler.NewTokenHandler(TokenService)
 	MfaHandler := handler.NewMfaHandler(MfaService, TokenService)
 	RbacHandler := handler.NewRbacHandler(RbacService)
+	OAuthHandler := handler.NewOAuthHandler(OAuthService)
 
 	m := &Module{
 		Cfg:         cfg,
@@ -119,6 +128,8 @@ func NewModule(
 		MfaRepo:           MfaRepo,
 		RbacRepo:          RbacRepo,
 		AdminAPITokenRepo: AdminAPITokenRepo,
+		AdminAuthRepo:     AdminAuthRepo,
+		OAuthRepo:         OAuthRepo,
 
 		DeviceService:        DeviceService,
 		TokenService:         TokenService,
@@ -126,6 +137,8 @@ func NewModule(
 		AuthService:          AuthService,
 		RbacService:          RbacService,
 		AdminAPITokenService: AdminAPITokenService,
+		AdminAuthService:     AdminAuthService,
+		OAuthService:         OAuthService,
 
 		HealthHandler: HealthHandler,
 		AuthHandler:   AuthHandler,
@@ -133,15 +146,22 @@ func NewModule(
 		TokenHandler:  TokenHandler,
 		MfaHandler:    MfaHandler,
 		RbacHandler:   RbacHandler,
+		OAuthHandler:  OAuthHandler,
 	}
 
 	// ── Bootstrap ─────────────────────────────────────────────────────────────
-	if err := m.ensureInitialSecrets(context.Background()); err != nil {
+	tele := telegram.NewTelegramClient(cfg.Telegram.BotToken, cfg.Telegram.ChatID)
+
+	if err := bootstrap.EnsureInitialSecrets(context.Background(), SecretRepo, cfg.Security.MasterKey); err != nil {
 		return nil, fmt.Errorf("iam module: ensure initial secrets: %w", err)
 	}
 
-	if err := m.ensureAdminBootstrapToken(context.Background()); err != nil {
-		return nil, fmt.Errorf("iam module: ensure admin bootstrap token: %w", err)
+	if err := bootstrap.EnsureAdminBootstrapToken(context.Background(), AdminAPITokenService, tele); err != nil {
+		return nil, fmt.Errorf("iam module: ensure admin bootstrap credential: %w", err)
+	}
+
+	if err := bootstrap.EnsureAdminAuthBootstrap(context.Background(), AdminAuthService, tele); err != nil {
+		return nil, fmt.Errorf("iam module: ensure admin auth bootstrap: %w", err)
 	}
 
 	// ── RBAC warm-up (best-effort, non-blocking) ──────────────────────────────
@@ -158,113 +178,6 @@ func NewModule(
 	m.startSecretRotationWorker(context.Background())
 
 	return m, nil
-}
-
-func (m *Module) ensureInitialSecrets(ctx context.Context) error {
-	repo, ok := m.Secrets.(*repository.SecretRepository)
-	if !ok {
-		return nil
-	}
-
-	for _, family := range security.SecretFamilies() {
-		exists, err := repo.HasAny(ctx, family)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-
-		// Generate initial secret using MasterKey as seed
-		plain, err := security.GenerateToken(32, m.Cfg.Security.MasterKey)
-		if err != nil {
-			return err
-		}
-
-		cipher, err := security.EncryptSecret(plain, m.Cfg.Security.MasterKey)
-		if err != nil {
-			return err
-		}
-
-		err = repo.CreateSecretVersion(ctx, security.SecretVersion{
-			Family:    family,
-			Version:   1,
-			Value:     cipher,
-			ExpiresAt: time.Now().AddDate(10, 0, 0), // 10 years
-			RotatedAt: time.Now(),
-		})
-		if err != nil {
-			return err
-		}
-		slog.Info("iam: seeded initial secret", "family", family)
-	}
-	return nil
-}
-
-func (m *Module) ensureAdminBootstrapToken(ctx context.Context) error {
-	if m == nil || m.AdminAPITokenService == nil {
-		return nil
-	}
-
-	token, created, err := m.AdminAPITokenService.EnsureBootstrapToken(ctx)
-	if err != nil {
-		return err
-	}
-	if !created {
-		return nil
-	}
-
-	path := strings.TrimSpace(m.Cfg.Security.AdminBootstrapTokenPath)
-	if path == "" {
-		return fmt.Errorf("iam module: bootstrap token path is empty")
-	}
-
-	if err := writeAdminBootstrapTokenFile(path, token); err != nil {
-		return err
-	}
-	slog.Info("iam: bootstrap admin api token created", "path", path)
-	m.scheduleBootstrapTokenFileCleanup(path)
-
-	return nil
-}
-
-func writeAdminBootstrapTokenFile(path string, token string) error {
-	if path == "" {
-		return fmt.Errorf("iam module: admin bootstrap token path is empty")
-	}
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-
-	return os.WriteFile(path, []byte(token+"\n"), 0o600)
-}
-
-func (m *Module) scheduleBootstrapTokenFileCleanup(path string) {
-	if m == nil {
-		return
-	}
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return
-	}
-
-	ttl := m.Cfg.Security.AdminBootstrapTokenFileTTL
-	if ttl <= 0 {
-		ttl = 5 * time.Minute
-	}
-
-	go func() {
-		timer := time.NewTimer(ttl)
-		defer timer.Stop()
-		<-timer.C
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			slog.Warn("iam: failed to remove bootstrap token file", "path", path, "err", err)
-			return
-		}
-		slog.Info("iam: bootstrap token file removed", "path", path)
-	}()
 }
 
 func (m *Module) startCleanupWorker(parent context.Context, registry *middleware.RoleRegistry) {
@@ -301,14 +214,6 @@ func (m *Module) startCleanupWorker(parent context.Context, registry *middleware
 					slog.Info("iam: token cleanup completed", "deleted", deleted)
 				}
 
-				adminDeleted, err := m.AdminAPITokenService.PurgeExpired(ctx, 500)
-				if err != nil {
-					slog.Warn("iam: admin api token cleanup failed", "err", err)
-					continue
-				}
-				if adminDeleted > 0 {
-					slog.Info("iam: expired admin api tokens cleaned", "deleted", adminDeleted)
-				}
 			}
 		}
 	}()

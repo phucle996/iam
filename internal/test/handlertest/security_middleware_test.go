@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/transport/http/middleware"
+	"iam/internal/domain/entity"
+	"iam/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -75,7 +74,7 @@ func TestCookieOriginGuardSkipsBearerRequests(t *testing.T) {
 	}
 }
 
-func TestAdminAPITokenMiddlewareSetsRotatedCookie(t *testing.T) {
+func TestAdminAPITokenMiddlewareAllowsValidToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
@@ -83,11 +82,7 @@ func TestAdminAPITokenMiddlewareSetsRotatedCookie(t *testing.T) {
 		if token != "old-token" {
 			return &entity.AdminAPIAuthorization{Valid: false}, nil
 		}
-		return &entity.AdminAPIAuthorization{
-			Valid:       true,
-			CookieToken: "new-token",
-			ExpiresAt:   time.Now().UTC().Add(10 * time.Minute),
-		}, nil
+		return &entity.AdminAPIAuthorization{Valid: true}, nil
 	}), func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 	})
@@ -100,20 +95,5 @@ func TestAdminAPITokenMiddlewareSetsRotatedCookie(t *testing.T) {
 
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", w.Code)
-	}
-
-	resp := w.Result()
-	defer resp.Body.Close()
-	found := false
-	for _, ck := range resp.Cookies() {
-		if ck.Name == "apitoken" {
-			found = true
-			if ck.Path != "/admin" {
-				t.Fatalf("expected /admin cookie path, got %q", ck.Path)
-			}
-		}
-	}
-	if !found {
-		t.Fatalf("expected rotated apitoken cookie")
 	}
 }

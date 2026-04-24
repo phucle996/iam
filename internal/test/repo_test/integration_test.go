@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/app/bootstrap"
+	"iam/internal/app/bootstrap"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -90,7 +90,10 @@ func mustResetIAMState(t *testing.T, db *pgxpool.Pool) {
 		`DELETE FROM mfa_settings`,
 		`DELETE FROM role_permissions`,
 		`DELETE FROM user_roles`,
+		`DELETE FROM oauth_authorization_codes`,
+		`DELETE FROM oauth_refresh_tokens`,
 		`DELETE FROM oauth_grants`,
+		`DELETE FROM oauth_clients`,
 		`DELETE FROM roles`,
 		`DELETE FROM permissions`,
 		`DELETE FROM password_histories`,

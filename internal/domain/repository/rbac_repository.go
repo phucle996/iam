@@ -3,7 +3,7 @@ package domainrepo
 import (
 	"context"
 
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // RbacRepository handles persistence for roles and permissions.

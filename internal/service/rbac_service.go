@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"controlplane/internal/domain/entity"
-	domainrepo "controlplane/internal/domain/repository"
-	"controlplane/internal/transport/http/middleware"
+	"iam/internal/domain/entity"
+	domainrepo "iam/internal/domain/repository"
+	"iam/internal/transport/http/middleware"
 	"fmt"
 )
 

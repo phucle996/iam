@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // MfaSetting mirrors mfa_settings.

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/service"
-	"controlplane/internal/transport/http/middleware"
-	"controlplane/pkg/errorx"
+	"iam/internal/domain/entity"
+	"iam/internal/service"
+	"iam/internal/transport/http/middleware"
+	"iam/pkg/errorx"
 )
 
 type stubRbacRepo struct {

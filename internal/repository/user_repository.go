@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/model"
-	"controlplane/pkg/errorx"
+	"iam/internal/domain/entity"
+	"iam/internal/model"
+	"iam/pkg/errorx"
+	"iam/pkg/id"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -522,7 +523,40 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID, newPassword
 		return errorx.ErrResetFailed
 	}
 
-	tag, err := r.db.Exec(ctx,
+	historyID, err := id.Generate()
+	if err != nil {
+		return fmt.Errorf("iam repo: generate password history id: %w", err)
+	}
+
+	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("iam repo: begin password update tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var previousHash string
+	err = tx.QueryRow(ctx,
+		`SELECT password_hash FROM users WHERE id = $1 FOR UPDATE`,
+		userID,
+	).Scan(&previousHash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errorx.ErrUserNotFound
+		}
+		return fmt.Errorf("iam repo: read current password hash: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO password_histories (id, user_id, password_hash, created_at)
+		 VALUES ($1, $2, $3, NOW())`,
+		historyID, userID, previousHash,
+	); err != nil {
+		return fmt.Errorf("iam repo: store password history: %w", err)
+	}
+
+	tag, err := tx.Exec(ctx,
 		`UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`,
 		userID, newPasswordHash,
 	)
@@ -531,6 +565,10 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID, newPassword
 	}
 	if tag.RowsAffected() == 0 {
 		return errorx.ErrUserNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("iam repo: commit password update tx: %w", err)
 	}
 
 	return nil

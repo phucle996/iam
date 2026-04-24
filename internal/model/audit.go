@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // AuditLog mirrors audit_logs.

@@ -2,9 +2,8 @@ package domainrepo
 
 import (
 	"context"
+	"iam/internal/domain/entity"
 	"time"
-
-	"controlplane/internal/domain/entity"
 )
 
 // DeviceRepository defines all data-access methods for Device management.

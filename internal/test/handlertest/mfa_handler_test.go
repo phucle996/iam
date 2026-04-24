@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/transport/http/handler"
-	"controlplane/internal/transport/http/middleware"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/logger"
+	"iam/internal/domain/entity"
+	"iam/internal/transport/http/handler"
+	"iam/internal/transport/http/middleware"
+	"iam/pkg/errorx"
+	"iam/pkg/logger"
 	"errors"
 
 	"github.com/gin-gonic/gin"

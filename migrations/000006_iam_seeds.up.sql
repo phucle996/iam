@@ -1,18 +1,16 @@
--- Initial Roles
-INSERT INTO roles (id, name, level, description, created_at) VALUES
-	(left(md5(random()::text || clock_timestamp()::text || 'user-role'), 26), 'user', 100, 'Standard baseline user', NOW()),
-	(left(md5(random()::text || clock_timestamp()::text || 'root-role'), 26), 'root', 0, 'System root operator', NOW())
+
+INSERT INTO roles (id, name, level, description, created_at, updated_at) VALUES
+	('11111111111111111111111111', 'user', 100, 'Standard baseline user', NOW(), NOW()),
+	('22222222222222222222222222', 'root', 0, 'System root operator', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Initial Permissions
 INSERT INTO permissions (id, name, slug, description, created_at) VALUES
-    (left(md5(random()::text || clock_timestamp()::text || 'perm-user-read'), 26), 'iam:user:read', 'iam:user:read', 'Read user profiles', NOW()),
-    (left(md5(random()::text || clock_timestamp()::text || 'perm-user-write'), 26), 'iam:user:write', 'iam:user:write', 'Modify user profiles', NOW()),
-    (left(md5(random()::text || clock_timestamp()::text || 'perm-role-read'), 26), 'iam:role:read', 'iam:role:read', 'Read roles and permissions', NOW()),
-    (left(md5(random()::text || clock_timestamp()::text || 'perm-role-assign'), 26), 'iam:role:assign', 'iam:role:assign', 'Assign roles to users', NOW())
+	('31111111111111111111111111', 'iam:user:read', 'iam:user:read', 'Read user profiles', NOW()),
+	('32222222222222222222222222', 'iam:user:write', 'iam:user:write', 'Modify user profiles', NOW()),
+	('33333333333333333333333333', 'iam:role:read', 'iam:role:read', 'Read roles and permissions', NOW()),
+	('34444444444444444444444444', 'iam:role:assign', 'iam:role:assign', 'Assign roles to users', NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Assign Permissions to Roles
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
@@ -32,7 +30,6 @@ JOIN permissions p ON p.name IN (
 WHERE r.name = 'root'
 ON CONFLICT DO NOTHING;
 
--- Bootstrap Root User
 INSERT INTO users (
 	id,
 	username,
@@ -45,7 +42,7 @@ INSERT INTO users (
 	created_at,
 	updated_at
 ) VALUES (
-	left(md5(random()::text || clock_timestamp()::text || 'root-user'), 26),
+	'99999999999999999999999999',
 	'root',
 	'root@controlplane.local',
 	NULL,

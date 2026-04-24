@@ -3,7 +3,7 @@ package domainrepo
 import (
 	"context"
 
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // MfaRepository handles persistence for MFA settings and recovery codes.

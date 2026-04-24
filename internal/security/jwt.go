@@ -53,6 +53,9 @@ type Claims struct {
 	TokenID   string `json:"jti,omitempty"`
 	Issuer    string `json:"iss,omitempty"`
 	Audience  string `json:"aud,omitempty"`
+	ClientID  string `json:"client_id,omitempty"`
+	Scope     string `json:"scope,omitempty"`
+	TokenUse  string `json:"token_use,omitempty"`
 	IssuedAt  int64  `json:"iat"`
 	NotBefore int64  `json:"nbf,omitempty"`
 	ExpiresAt int64  `json:"exp"`
@@ -191,11 +194,14 @@ func normalizeClaims(claims Claims) Claims {
 	claims.TokenID = strings.TrimSpace(claims.TokenID)
 	claims.Issuer = strings.TrimSpace(claims.Issuer)
 	claims.Audience = strings.TrimSpace(claims.Audience)
+	claims.ClientID = strings.TrimSpace(claims.ClientID)
+	claims.Scope = strings.TrimSpace(claims.Scope)
+	claims.TokenUse = strings.TrimSpace(claims.TokenUse)
 	return claims
 }
 
 func validateClaimsForSigning(claims Claims) error {
-	if claims.Subject == "" {
+	if claims.Subject == "" && claims.ClientID == "" {
 		return ErrInvalidClaims
 	}
 	if claims.ExpiresAt <= 0 {
@@ -214,7 +220,7 @@ func validateClaimsForSigning(claims Claims) error {
 }
 
 func validateClaimsForParse(claims Claims, now time.Time) error {
-	if claims.Subject == "" {
+	if claims.Subject == "" && claims.ClientID == "" {
 		return ErrInvalidClaims
 	}
 	if claims.ExpiresAt <= 0 {

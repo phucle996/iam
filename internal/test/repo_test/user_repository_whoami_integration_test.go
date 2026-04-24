@@ -2,8 +2,8 @@ package repo_test
 
 import (
 	"context"
-	"controlplane/internal/repository"
-	"controlplane/pkg/errorx"
+	"iam/internal/repository"
+	"iam/pkg/errorx"
 	"errors"
 	"testing"
 	"time"
@@ -95,5 +95,34 @@ func TestUserRepositoryGetWhoAmIReturnsNotFoundForMissingUser(t *testing.T) {
 	}
 	if result != nil {
 		t.Fatalf("expected nil result for missing user, got %#v", result)
+	}
+}
+
+func TestUserRepositoryUpdatePasswordStoresPreviousHashHistory(t *testing.T) {
+	db := mustOpenIAMRepositoryIntegrationDB(t)
+	mustResetIAMState(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	userID := "password-user-1"
+	mustExecIAM(t, db, `INSERT INTO users (id, username, email, phone, password_hash, security_level, status, status_reason, created_at, updated_at)
+		VALUES ($1, 'password-user', 'password-user@example.com', NULL, 'old-hash', 2, 'active', '', NOW(), NOW())`, userID)
+
+	repo := repository.NewUserRepository(db)
+	if err := repo.UpdatePassword(ctx, userID, "new-hash"); err != nil {
+		t.Fatalf("update password: %v", err)
+	}
+
+	var currentHash string
+	mustQueryRowIAM(t, db, `SELECT password_hash FROM users WHERE id = $1`, userID).Scan(&currentHash)
+	if currentHash != "new-hash" {
+		t.Fatalf("expected current password hash to be updated, got %q", currentHash)
+	}
+
+	var historyHash string
+	mustQueryRowIAM(t, db, `SELECT password_hash FROM password_histories WHERE user_id = $1`, userID).Scan(&historyHash)
+	if historyHash != "old-hash" {
+		t.Fatalf("expected previous password hash in history, got %q", historyHash)
 	}
 }

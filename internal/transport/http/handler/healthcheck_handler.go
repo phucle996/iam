@@ -2,8 +2,8 @@ package handler
 
 import (
 	"context"
-	"controlplane/pkg/apires"
-	response "controlplane/pkg/apires"
+	"iam/pkg/apires"
+	response "iam/pkg/apires"
 	"sync/atomic"
 	"time"
 

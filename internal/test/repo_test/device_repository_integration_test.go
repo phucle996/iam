@@ -2,9 +2,9 @@ package repo_test
 
 import (
 	"context"
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/repository"
-	"controlplane/pkg/errorx"
+	"iam/internal/domain/entity"
+	"iam/internal/repository"
+	"iam/pkg/errorx"
 	"errors"
 	"testing"
 	"time"

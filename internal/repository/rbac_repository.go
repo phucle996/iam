@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/id"
+	"iam/internal/domain/entity"
+	"iam/pkg/errorx"
+	"iam/pkg/id"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

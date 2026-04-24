@@ -10,16 +10,16 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"controlplane/internal/domain/entity"
-	domainsvc "controlplane/internal/domain/service"
-	"controlplane/internal/observability"
-	"controlplane/internal/transport/http/middleware"
-	iam_reqdto "controlplane/internal/transport/http/request"
-	iam_resdto "controlplane/internal/transport/http/response"
+	"iam/internal/domain/entity"
+	domainsvc "iam/internal/domain/service"
+	"iam/internal/observability"
+	"iam/internal/transport/http/middleware"
+	iam_reqdto "iam/internal/transport/http/request"
+	iam_resdto "iam/internal/transport/http/response"
 
-	response "controlplane/pkg/apires"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/logger"
+	response "iam/pkg/apires"
+	"iam/pkg/errorx"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,11 +36,16 @@ const (
 )
 
 type AuthHandler struct {
-	authSvc domainsvc.AuthService
+	authSvc      domainsvc.AuthService
+	adminAuthSvc domainsvc.AdminAuthService
 }
 
 func NewAuthHandler(authSvc domainsvc.AuthService) *AuthHandler {
 	return &AuthHandler{authSvc: authSvc}
+}
+
+func NewAuthHandlerWithAdmin(authSvc domainsvc.AuthService, adminAuthSvc domainsvc.AdminAuthService) *AuthHandler {
+	return &AuthHandler{authSvc: authSvc, adminAuthSvc: adminAuthSvc}
 }
 
 // @Router /api/v1/auth/register [post]
@@ -258,11 +263,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 // @Router /admin/auth/login [post]
 // @Tags Auth
-// @Summary Admin login with API key
-// @Description Admin login with API key
+// @Summary Admin login with API key, 2FA, CIDR, and device binding
+// @Description Creates a server-side admin session and bound device cookies.
 // @Accept json
 // @Produce json
-// @Success 204 {object} response.Response
+// @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Failure 500 {object} response.Response
@@ -276,36 +281,118 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		}
 	}()
 
-	var req iam_reqdto.AdminAPIKeyLoginRequest
+	var req iam_reqdto.AdminLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.HandlerWarn(c, "iam.auth.admin-login", err, "invalid payload")
 		response.RespondBadRequest(c, "invalid request payload")
 		return
 	}
 
-	apiKey := strings.TrimSpace(req.APIKey)
-	if apiKey == "" {
+	if h.adminAuthSvc == nil {
+		response.RespondServiceUnavailable(c, "admin authentication unavailable")
+		return
+	}
+
+	adminKey := strings.TrimSpace(req.AdminKey)
+	if adminKey == "" {
 		response.RespondBadRequest(c, "invalid request payload")
 		return
 	}
 
-	if err := h.authSvc.AdminAPIKeyLogin(ctx, apiKey); err != nil {
+	deviceID, _ := c.Cookie(middleware.AdminDeviceIDCookieName)
+	deviceSecret, _ := c.Cookie(middleware.AdminDeviceSecretCookieName)
+
+	result, err := h.adminAuthSvc.Login(ctx, entity.AdminLoginInput{
+		AdminKey:      adminKey,
+		TwoFactorCode: strings.TrimSpace(req.TwoFactorCode),
+		TrustDevice:   req.TrustDevice,
+		ClientIP:      c.ClientIP(),
+		UserAgent:     c.Request.UserAgent(),
+		DeviceID:      strings.TrimSpace(deviceID),
+		DeviceSecret:  strings.TrimSpace(deviceSecret),
+	})
+	if err != nil {
 		logger.HandlerError(c, "iam.auth.admin-login", err)
 		switch {
-		case errors.Is(err, errorx.ErrAdminAPIKeyInvalid):
-			response.RespondUnauthorized(c, "unauthorized")
-		case errors.Is(err, errorx.ErrAdminAPIKeyAuthError):
-			response.RespondServiceUnavailable(c, "admin authentication unavailable")
+		case errors.Is(err, errorx.ErrAdminDeviceInvalid):
+			clearAdminAuthCookies(c)
+			response.RespondUnauthorized(c, "admin login failed")
+		case errors.Is(err, errorx.ErrAdminAuthInvalid),
+			errors.Is(err, errorx.ErrAdminSessionInvalid):
+			response.RespondUnauthorized(c, "admin login failed")
 		default:
-			response.RespondInternalError(c, "admin authentication failed")
+			response.RespondInternalError(c, "admin login failed")
 		}
 		return
 	}
+	if result == nil || result.Admin == nil {
+		response.RespondInternalError(c, "admin login failed")
+		return
+	}
 
-	setAdminAPITokenCookie(c, apiKey, adminAPITokenExpiryFromNow())
+	setAdminSessionCookies(c, result)
 	adminSuccess = true
-	logger.HandlerInfo(c, "iam.auth.admin-login", "admin api token login successful")
-	c.AbortWithStatus(http.StatusNoContent)
+	logger.HandlerInfo(c, "iam.auth.admin-login", "admin login successful")
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
+		"admin": gin.H{
+			"id":           result.Admin.ID,
+			"display_name": result.Admin.DisplayName,
+		},
+		"session": gin.H{
+			"expires_at": result.SessionExpiresAt,
+		},
+	})
+}
+
+// @Router /admin/auth/logout [post]
+// @Tags Auth
+// @Summary Admin logout
+// @Description Revokes the server-side admin session and clears the session cookie.
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response
+func (h *AuthHandler) AdminLogout(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	sessionToken, _ := c.Cookie(middleware.AdminSessionCookieName)
+	if h.adminAuthSvc != nil {
+		if err := h.adminAuthSvc.Logout(ctx, sessionToken); err != nil {
+			logger.HandlerError(c, "iam.auth.admin-logout", err)
+		}
+	}
+
+	clearAdminSessionCookie(c)
+	logger.HandlerInfo(c, "iam.auth.admin-logout", "admin logged out")
+	response.RespondSuccess(c, nil, "logged out successfully")
+}
+
+// @Router /admin/auth/session [get]
+// @Tags Auth
+// @Summary Admin session bootstrap
+// @Description Returns the active admin session context.
+// @Produce json
+// @Success 200 {object} response.Response
+func (h *AuthHandler) AdminSession(c *gin.Context) {
+	adminID := strings.TrimSpace(middleware.GetAdminUserID(c))
+	if adminID == "" {
+		response.RespondUnauthorized(c, "unauthorized")
+		return
+	}
+
+	displayName, _ := c.Get(middleware.CtxKeyAdminDisplayName)
+	sessionID, _ := c.Get(middleware.CtxKeyAdminSessionID)
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
+		"admin": gin.H{
+			"id":           adminID,
+			"display_name": displayName,
+		},
+		"session": gin.H{
+			"id": sessionID,
+		},
+	})
 }
 
 // @Router /api/v1/auth/forgot-password [post]

@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
-	"controlplane/internal/security"
-	"controlplane/pkg/id"
+	"iam/internal/security"
+	"iam/pkg/id"
 	"fmt"
 	"time"
 

@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"controlplane/pkg/apires"
-	"controlplane/pkg/logger"
+	"iam/pkg/apires"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,9 +17,11 @@ const (
 )
 
 var cookieAuthNames = map[string]struct{}{
-	"access_token":  {},
-	"refresh_token": {},
-	"apitoken":      {},
+	"access_token":          {},
+	"refresh_token":         {},
+	"apitoken":              {},
+	AdminSessionCookieName:  {},
+	AdminDeviceIDCookieName: {},
 }
 
 // CookieOriginGuard enforces Origin/Referer checks for unsafe requests

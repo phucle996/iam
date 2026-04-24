@@ -1,14 +1,14 @@
 package main
 
 import (
-	"controlplane/pkg/logger"
+	"iam/pkg/logger"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"controlplane/internal/app"
-	"controlplane/internal/config"
+	"iam/internal/app"
+	"iam/internal/config"
 )
 
 func main() {

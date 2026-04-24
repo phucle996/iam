@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"controlplane/internal/observability"
-	"controlplane/pkg/id"
-	"controlplane/pkg/logger"
+	"iam/internal/observability"
+	"iam/pkg/id"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/attribute"

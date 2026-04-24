@@ -2,9 +2,9 @@ package repository
 
 import (
 	"context"
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/model"
-	"controlplane/pkg/errorx"
+	"iam/internal/domain/entity"
+	"iam/internal/model"
+	"iam/pkg/errorx"
 	"errors"
 	"fmt"
 	"time"

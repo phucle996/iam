@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"controlplane/internal/domain/entity"
-	domainsvc "controlplane/internal/domain/service"
-	reqdto "controlplane/internal/transport/http/request"
-	"controlplane/pkg/apires"
-	"controlplane/pkg/errorx"
-	"controlplane/pkg/logger"
+	"iam/internal/domain/entity"
+	domainsvc "iam/internal/domain/service"
+	reqdto "iam/internal/transport/http/request"
+	"iam/pkg/apires"
+	"iam/pkg/errorx"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )

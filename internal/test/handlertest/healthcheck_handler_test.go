@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"controlplane/internal/transport/http/handler"
+	"iam/internal/transport/http/handler"
 	"github.com/gin-gonic/gin"
 )
 

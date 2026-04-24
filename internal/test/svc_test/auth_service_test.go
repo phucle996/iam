@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/config"
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/security"
-	"controlplane/internal/service"
-	"controlplane/pkg/errorx"
+	"iam/internal/config"
+	"iam/internal/domain/entity"
+	"iam/internal/security"
+	"iam/internal/service"
+	"iam/pkg/errorx"
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"

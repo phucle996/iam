@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"controlplane/pkg/logger"
+	"iam/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )

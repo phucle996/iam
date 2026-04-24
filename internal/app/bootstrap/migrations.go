@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	iammigrations "controlplane/migrations"
-	"controlplane/pkg/logger"
 	"fmt"
+	"iam/migrations"
+	"iam/pkg/logger"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,7 +58,7 @@ func RunMigrations(ctx context.Context, db *pgxpool.Pool, schema string) error {
 	}()
 
 	sources := []migrationSource{
-		{module: "iam", files: iammigrations.Files},
+		{module: "iam", files: migrations.Files},
 	}
 
 	for _, source := range sources {

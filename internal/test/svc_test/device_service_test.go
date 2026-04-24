@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/security"
-	"controlplane/internal/service"
+	"iam/internal/domain/entity"
+	"iam/internal/security"
+	"iam/internal/service"
 )
 
 func TestDeviceServiceRebindVerifiesSignatureAndRotatesKey(t *testing.T) {

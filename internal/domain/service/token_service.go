@@ -3,7 +3,7 @@ package domainsvc
 import (
 	"context"
 
-	"controlplane/internal/domain/entity"
+	"iam/internal/domain/entity"
 )
 
 // TokenResult is the response from a successful token issuance or rotation.

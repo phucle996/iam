@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"controlplane/internal/service"
-	"controlplane/internal/transport/http/middleware"
+	"iam/internal/service"
+	"iam/internal/transport/http/middleware"
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"

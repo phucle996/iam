@@ -2,11 +2,12 @@ package handler
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"controlplane/internal/security"
+	"iam/internal/domain/entity"
+	"iam/internal/security"
+	"iam/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,29 +60,83 @@ func setSessionCookies(c *gin.Context, accessToken, refreshToken, deviceID strin
 	})
 }
 
-func setAdminAPITokenCookie(c *gin.Context, apiToken string, expiresAt time.Time) {
+func setAdminAPITokenCookie(c *gin.Context, apiToken string) {
 	secureCookie := isSecureCookie(c)
-	maxAge := cookieMaxAge(expiresAt)
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "apitoken",
 		Value:    apiToken,
 		Path:     "/admin",
-		MaxAge:   maxAge,
-		Expires:  expiresAt,
 		HttpOnly: true,
 		Secure:   secureCookie,
 		SameSite: http.SameSiteStrictMode,
 	})
 }
 
-func adminAPITokenExpiryFromNow() time.Time {
-	ttl := 15 * time.Minute
-	if raw := strings.TrimSpace(os.Getenv("SECURITY_ADMIN_API_TOKEN_TTL")); raw != "" {
-		if parsed, err := time.ParseDuration(raw); err == nil && parsed > 0 {
-			ttl = parsed
-		}
+func setAdminSessionCookies(c *gin.Context, result *entity.AdminLoginResult) {
+	if result == nil {
+		return
 	}
-	return time.Now().UTC().Add(ttl)
+	sessionMaxAge := cookieMaxAge(result.SessionExpiresAt)
+	deviceMaxAge := cookieMaxAge(result.DeviceExpiresAt)
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     middleware.AdminSessionCookieName,
+		Value:    result.SessionToken,
+		Path:     "/",
+		MaxAge:   sessionMaxAge,
+		Expires:  result.SessionExpiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     middleware.AdminDeviceIDCookieName,
+		Value:    result.DeviceID,
+		Path:     "/",
+		MaxAge:   deviceMaxAge,
+		Expires:  result.DeviceExpiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     middleware.AdminDeviceSecretCookieName,
+		Value:    result.DeviceSecret,
+		Path:     "/",
+		MaxAge:   deviceMaxAge,
+		Expires:  result.DeviceExpiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func clearAdminSessionCookie(c *gin.Context) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     middleware.AdminSessionCookieName,
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func clearAdminAuthCookies(c *gin.Context) {
+	for _, name := range []string{
+		middleware.AdminSessionCookieName,
+		middleware.AdminDeviceIDCookieName,
+		middleware.AdminDeviceSecretCookieName,
+	} {
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     name,
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteStrictMode,
+		})
+	}
 }
 
 func clearSessionCookies(c *gin.Context) {

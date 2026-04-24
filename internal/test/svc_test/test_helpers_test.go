@@ -10,9 +10,9 @@ import (
 	"encoding/pem"
 	"time"
 
-	"controlplane/internal/domain/entity"
-	"controlplane/internal/security"
-	"controlplane/pkg/errorx"
+	"iam/internal/domain/entity"
+	"iam/internal/security"
+	"iam/pkg/errorx"
 )
 
 type fakeSecretProvider struct {
@@ -440,15 +440,7 @@ func (s *stubAdminAPITokenService) Authorize(ctx context.Context, token string) 
 	if !ok {
 		return &entity.AdminAPIAuthorization{Valid: false}, nil
 	}
-	return &entity.AdminAPIAuthorization{
-		Valid:       true,
-		CookieToken: token,
-		ExpiresAt:   time.Now().UTC().Add(15 * time.Minute),
-	}, nil
-}
-
-func (s *stubAdminAPITokenService) PurgeExpired(ctx context.Context, limit int64) (int64, error) {
-	return 0, nil
+	return &entity.AdminAPIAuthorization{Valid: true}, nil
 }
 
 func cloneUser(v *entity.User) *entity.User {
