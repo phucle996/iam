@@ -27,7 +27,7 @@ func EnsureInitialSecrets(ctx context.Context, repo *repository.SecretRepository
 			continue
 		}
 
-		plain, err := security.GenerateToken(32, masterKey)
+		plain, err := security.GenerateToken(128, masterKey)
 		if err != nil {
 			return err
 		}

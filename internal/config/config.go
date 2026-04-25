@@ -8,7 +8,7 @@ type Config struct {
 	Security SecurityCfg
 	Psql     PsqlCfg
 	Redis    RedisCfg
-	// GRPC     GRPCCfg
+	GRPC     GRPCCfg
 	Telegram TelegramCfg
 }
 
@@ -108,21 +108,16 @@ type TelegramCfg struct {
 	ChatID   string
 }
 
-// // GRPCCfg holds gRPC server and client settings.
-// type GRPCCfg struct {
-// 	ServerPort string
+// GRPCCfg holds IAM internal gRPC server settings.
+type GRPCCfg struct {
+	Enabled bool
 
-// 	// Inbound server TLS
-// 	ServerTLSEnabled bool
-// 	ServerCertPath   string
-// 	ServerKeyPath    string
+	ServerPort string
 
-// 	// Client TLS
-// 	ClientTLSEnabled bool
-// 	ClientCACertPath string
-// 	ClientCertPath   string
-// 	ClientKeyPath    string
-// }
+	ServerTLSCertPath string
+	ServerTLSKeyPath  string
+	ClientCACertPath  string
+}
 
 // LoadConfig reads environment variables and returns the root typed config.
 func LoadConfig() *Config {
@@ -192,16 +187,13 @@ func LoadConfig() *Config {
 			MaxRetries:    getEnvAsInt("REDIS_MAX_RETRIES", 5),
 			RetryInterval: getEnvAsDuration("REDIS_RETRY_INTERVAL", 3*time.Second),
 		},
-		// GRPC: GRPCCfg{
-		// 	ServerPort:       getEnv("GRPC_SERVER_PORT", "9090"),
-		// 	ServerTLSEnabled: getEnvAsBool("GRPC_SERVER_TLS_ENABLED", false),
-		// 	ServerCertPath:   getEnv("GRPC_SERVER_TLS_CERT", ""),
-		// 	ServerKeyPath:    getEnv("GRPC_SERVER_TLS_KEY", ""),
-		// 	ClientTLSEnabled: getEnvAsBool("GRPC_CLIENT_TLS_ENABLED", false),
-		// 	ClientCACertPath: getEnv("GRPC_CLIENT_TLS_CA", ""),
-		// 	ClientCertPath:   getEnv("GRPC_CLIENT_TLS_CERT", ""),
-		// 	ClientKeyPath:    getEnv("GRPC_CLIENT_TLS_KEY", ""),
-		// },
+		GRPC: GRPCCfg{
+			Enabled:           getEnvAsBool("GRPC_SERVER_ENABLED", false),
+			ServerPort:        getEnv("GRPC_SERVER_PORT", "9090"),
+			ServerTLSCertPath: getEnv("GRPC_SERVER_TLS_CERT", ""),
+			ServerTLSKeyPath:  getEnv("GRPC_SERVER_TLS_KEY", ""),
+			ClientCACertPath:  getEnv("GRPC_SERVER_CLIENT_CA", ""),
+		},
 		Telegram: TelegramCfg{
 			BotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
 			ChatID:   getEnv("TELEGRAM_CHAT_ID", ""),

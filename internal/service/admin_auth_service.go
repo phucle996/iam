@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -161,6 +163,10 @@ func (s *AdminAuthService) Login(ctx context.Context, input entity.AdminLoginInp
 	if input.AdminKey == "" {
 		return nil, errorx.ErrAdminAuthInvalid
 	}
+	if !s.adminIPAllowed(input.ClientIP) {
+		s.audit(ctx, "admin_login_blocked_by_cidr", 3, input.ClientIP, input.UserAgent, "", nil)
+		return nil, errorx.ErrAdminAuthInvalid
+	}
 
 	credential, admin, err := s.credentialFromAdminKey(ctx, input.AdminKey, now)
 	if err != nil || !credentialUsable(credential, now) || !adminUsable(admin) {
@@ -261,6 +267,15 @@ func (s *AdminAuthService) AuthorizeSession(ctx context.Context, input entity.Ad
 		_ = s.repo.RevokeSession(ctx, session.SessionTokenHash, now)
 		return nil, errorx.ErrAdminDeviceInvalid
 	}
+	if !s.adminIPAllowed(input.ClientIP) {
+		_ = s.repo.RevokeSession(ctx, session.SessionTokenHash, now)
+		s.audit(ctx, "admin_session_blocked_by_cidr", 3, input.ClientIP, input.UserAgent, device.ID, map[string]any{
+			"admin_user_id": admin.ID,
+			"credential_id": credential.ID,
+			"session_id":    session.ID,
+		})
+		return nil, errorx.ErrAdminSessionInvalid
+	}
 
 	if !s.verifyTokenHash(input.DeviceSecret, device.DeviceSecretHash) {
 		_ = s.repo.MarkDeviceSuspicious(ctx, device.ID)
@@ -333,6 +348,40 @@ func (s *AdminAuthService) credentialFromAdminKey(ctx context.Context, adminKey 
 		}
 	}
 	return nil, nil, errorx.ErrAdminAuthInvalid
+}
+
+func (s *AdminAuthService) adminIPAllowed(clientIP string) bool {
+	if s == nil || s.cfg == nil {
+		return true
+	}
+	allowedCIDRs := s.cfg.Security.AdminAllowedCIDRs
+	if len(allowedCIDRs) == 0 {
+		return true
+	}
+
+	clientIP = strings.TrimSpace(clientIP)
+	if host, _, err := net.SplitHostPort(clientIP); err == nil {
+		clientIP = host
+	}
+	addr, err := netip.ParseAddr(clientIP)
+	if err != nil {
+		return false
+	}
+
+	for _, cidr := range allowedCIDRs {
+		cidr = strings.TrimSpace(cidr)
+		if cidr == "" {
+			continue
+		}
+		prefix, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			continue
+		}
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *AdminAuthService) sessionFromToken(ctx context.Context, token string, now time.Time) (*entity.AdminSession, *entity.AdminUser, *entity.AdminAPICredential, *entity.AdminDevice, error) {

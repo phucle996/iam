@@ -7,6 +7,7 @@ import (
 	"iam/internal/app/bootstrap"
 	"iam/internal/config"
 	"iam/internal/observability"
+	grpc_transport "iam/internal/transport/grpc"
 	"iam/internal/transport/http/handler"
 	"iam/internal/transport/http/middleware"
 	"iam/pkg/logger"
@@ -28,9 +29,9 @@ type App struct {
 	otel       *observability.OTel
 	prom       *observability.Prometheus
 	httpServer *http.Server
-	// grpc       *bootstrap.GRPC
-	psql *pgxpool.Pool
-	rds  *redis.Client
+	grpc       *bootstrap.GRPC
+	psql       *pgxpool.Pool
+	rds        *redis.Client
 }
 
 func NewApplication(cfg *config.Config) (*App, error) {
@@ -61,13 +62,6 @@ func NewApplication(cfg *config.Config) (*App, error) {
 
 	// Init HealthHandler
 	health := handler.NewHealthHandler(db, rds.Unwrap())
-
-	// Init gRPC (server + client manager)
-	// g, err := bootstrap.InitGRPC(ctx, cfg)
-	// if err != nil {
-	// 	cancel()
-	// 	return nil, err
-	// }
 
 	// Init Gin engine and register routes
 	gin.SetMode(gin.ReleaseMode)
@@ -108,6 +102,19 @@ func NewApplication(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	g, err := bootstrap.InitGRPC(&cfg.GRPC)
+	if err != nil {
+		m.Stop()
+		_ = otelObs.Shutdown(context.Background())
+		_ = rds.Close()
+		db.Close()
+		cancel()
+		return nil, err
+	}
+	if g != nil {
+		grpc_transport.RegisterSecretRuntimeService(g.Server, m.Secrets)
+	}
+
 	RegisterRoutes(engine, cfg, m)
 
 	httpSrv := &http.Server{
@@ -128,19 +135,20 @@ func NewApplication(cfg *config.Config) (*App, error) {
 		otel:       otelObs,
 		prom:       promObs,
 		httpServer: httpSrv,
-		// grpc:       g,
-		psql: db,
-		rds:  rds,
+		grpc:       g,
+		psql:       db,
+		rds:        rds,
 	}, nil
 }
 
 func (a *App) Start(cfg *config.Config) error {
-	// Start gRPC server
-	// go func() {
-	// 	if err := a.grpc.Start(); err != nil {
-	// 		logger.SysError("app", fmt.Sprintf("gRPC server stopped: %v", err))
-	// 	}
-	// }()
+	if a.grpc != nil {
+		go func() {
+			if err := a.grpc.Start(); err != nil {
+				logger.SysError("app", fmt.Sprintf("gRPC server stopped: %v", err))
+			}
+		}()
+	}
 
 	// Start HTTP server
 	go func() {
@@ -170,8 +178,9 @@ func (a *App) Stop() {
 		logger.SysError("app", fmt.Sprintf("HTTP server shutdown error: %v", err))
 	}
 
-	// Stop gRPC (server + close all client connections)
-	// a.grpc.Stop()
+	if a.grpc != nil {
+		a.grpc.Stop()
+	}
 
 	if a.module != nil {
 		a.module.Stop()

@@ -98,7 +98,12 @@ func NewModule(
 	DeviceService := service.NewDeviceService(DeviceRepo)
 	TokenService := service.NewTokenService(TokenRepo, DeviceRepo, UserRepo, rdb, cfg, SecretRepo)
 	MfaService := service.NewMfaService(MfaRepo, UserRepo, rdb, cfg)
-	RbacService := service.NewRbacService(RbacRepo, registry, service.NewRedisRbacCacheBus(rdb))
+	RbacService := service.NewRbacService(
+		RbacRepo,
+		registry,
+		service.NewRedisRbacCacheBus(rdb),
+		service.NewRedisRbacPermissionCache(rdb),
+	)
 	AdminAPITokenService := service.NewAdminAPITokenService(AdminAPITokenRepo, SecretRepo)
 	AdminAuthService := service.NewAdminAuthService(AdminAuthRepo, SecretRepo, cfg)
 	OAuthService := service.NewOAuthService(OAuthRepo, SecretRepo, cfg, rdb)

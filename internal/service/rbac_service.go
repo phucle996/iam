@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"iam/internal/domain/entity"
 	domainrepo "iam/internal/domain/repository"
 	"iam/internal/transport/http/middleware"
-	"fmt"
 )
 
 // RbacService implements iam_domainsvc.RbacService.
@@ -15,13 +15,18 @@ import (
 // Every mutation that changes a role's name/level/permissions calls
 // InvalidateRole so the next request sees fresh data.
 type RbacService struct {
-	repo     domainrepo.RbacRepository
-	registry *middleware.RoleRegistry
-	bus      RbacCacheBus
+	repo            domainrepo.RbacRepository
+	registry        *middleware.RoleRegistry
+	bus             RbacCacheBus
+	permissionCache RbacPermissionCache
 }
 
-func NewRbacService(repo domainrepo.RbacRepository, registry *middleware.RoleRegistry, bus RbacCacheBus) *RbacService {
-	return &RbacService{repo: repo, registry: registry, bus: bus}
+func NewRbacService(repo domainrepo.RbacRepository, registry *middleware.RoleRegistry, bus RbacCacheBus, caches ...RbacPermissionCache) *RbacService {
+	var cache RbacPermissionCache
+	if len(caches) > 0 {
+		cache = caches[0]
+	}
+	return &RbacService{repo: repo, registry: registry, bus: bus, permissionCache: cache}
 }
 
 // ── RoleResolver ──────────────────────────────────────────────────────────────
@@ -33,10 +38,12 @@ func (s *RbacService) LoadRole(ctx context.Context, role string) (middleware.Rol
 		return middleware.RoleEntry{}, fmt.Errorf("rbac svc: load %q: %w", role, err)
 	}
 
-	return middleware.RoleEntry{
+	entry := middleware.RoleEntry{
 		Level:       rp.Role.Level,
 		Permissions: rp.Permissions,
-	}, nil
+	}
+	_ = s.cacheRole(ctx, rp)
+	return entry, nil
 }
 
 // InvalidateRole evicts one role so the next request refetches.
@@ -73,6 +80,9 @@ func (s *RbacService) WarmUp(ctx context.Context) error {
 			Level:       roleEntry.Role.Level,
 			Permissions: roleEntry.Permissions,
 		})
+		if err := s.cacheRole(ctx, roleEntry); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -95,6 +105,9 @@ func (s *RbacService) CreateRole(ctx context.Context, role *entity.Role) error {
 	if err := s.repo.CreateRole(ctx, role); err != nil {
 		return err
 	}
+	if role != nil {
+		s.refreshRoleCache(ctx, role.Name)
+	}
 	s.InvalidateAll(ctx)
 	return nil
 }
@@ -108,6 +121,10 @@ func (s *RbacService) UpdateRole(ctx context.Context, role *entity.Role) error {
 	if err := s.repo.UpdateRole(ctx, role); err != nil {
 		return err
 	}
+	if old.Name != role.Name {
+		_ = s.deleteRoleCache(ctx, old.Name)
+	}
+	s.refreshRoleCache(ctx, role.Name)
 	s.InvalidateRole(ctx, old.Name)
 	if role.Name != old.Name {
 		s.InvalidateRole(ctx, role.Name)
@@ -124,6 +141,7 @@ func (s *RbacService) DeleteRole(ctx context.Context, id string) error {
 	if err := s.repo.DeleteRole(ctx, id); err != nil {
 		return err
 	}
+	_ = s.deleteRoleCache(ctx, role.Name)
 	s.InvalidateRole(ctx, role.Name)
 	return nil
 }
@@ -144,6 +162,7 @@ func (s *RbacService) AssignPermission(ctx context.Context, roleID, permID strin
 		return err
 	}
 	if role, err := s.repo.GetRoleByID(ctx, roleID); err == nil {
+		s.refreshRoleCache(ctx, role.Name)
 		s.InvalidateRole(ctx, role.Name)
 	}
 	return nil
@@ -155,7 +174,33 @@ func (s *RbacService) RevokePermission(ctx context.Context, roleID, permID strin
 		return err
 	}
 	if role, err := s.repo.GetRoleByID(ctx, roleID); err == nil {
+		s.refreshRoleCache(ctx, role.Name)
 		s.InvalidateRole(ctx, role.Name)
 	}
 	return nil
+}
+
+func (s *RbacService) refreshRoleCache(ctx context.Context, role string) {
+	if s == nil || s.repo == nil {
+		return
+	}
+	rp, err := s.repo.GetRoleByName(ctx, role)
+	if err != nil {
+		return
+	}
+	_ = s.cacheRole(ctx, rp)
+}
+
+func (s *RbacService) cacheRole(ctx context.Context, role *entity.RoleWithPermissions) error {
+	if s == nil || s.permissionCache == nil {
+		return nil
+	}
+	return s.permissionCache.SetRole(ctx, role)
+}
+
+func (s *RbacService) deleteRoleCache(ctx context.Context, role string) error {
+	if s == nil || s.permissionCache == nil {
+		return nil
+	}
+	return s.permissionCache.DeleteRole(ctx, role)
 }
