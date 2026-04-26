@@ -113,6 +113,7 @@ func NewApplication(cfg *config.Config) (*App, error) {
 	}
 	if g != nil {
 		grpc_transport.RegisterSecretRuntimeService(g.Server, m.Secrets)
+		grpc_transport.RegisterAdminSessionService(g.Server, m.AdminAuthService)
 	}
 
 	RegisterRoutes(engine, cfg, m)
