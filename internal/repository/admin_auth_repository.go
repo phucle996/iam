@@ -159,6 +159,22 @@ func (r *AdminAuthRepository) ListMFAMethods(ctx context.Context, adminUserID st
 	return methods, nil
 }
 
+func (r *AdminAuthRepository) DisableMFAMethod(ctx context.Context, methodID string) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("iam repo: admin auth db is nil")
+	}
+
+	_, err := r.db.Exec(ctx, `
+		UPDATE admin_mfa_methods
+		SET status = $2, updated_at = NOW()
+		WHERE id = $1
+	`, methodID, entity.AdminMFAStatusDisabled)
+	if err != nil {
+		return fmt.Errorf("iam repo: disable admin mfa method: %w", err)
+	}
+	return nil
+}
+
 func (r *AdminAuthRepository) GetDeviceByID(ctx context.Context, deviceID string) (*entity.AdminDevice, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("iam repo: admin auth db is nil")

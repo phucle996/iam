@@ -448,6 +448,9 @@ func (s *AdminAuthService) verifyMFA(ctx context.Context, adminUserID, code stri
 			}
 		case entity.AdminMFATypeRecovery:
 			if security.HashRecoveryCode(code) == strings.TrimSpace(method.CodeHash) {
+				if err := s.repo.DisableMFAMethod(ctx, method.ID); err != nil {
+					return false, err
+				}
 				return true, nil
 			}
 		}

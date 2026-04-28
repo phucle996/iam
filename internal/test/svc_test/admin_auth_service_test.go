@@ -25,6 +25,7 @@ type adminAuthRepoStub struct {
 	createdSessionHash      string
 	revokedSessionHash      string
 	markedSuspiciousID      string
+	disabledMFAMethodID     string
 }
 
 func (r *adminAuthRepoStub) HasAdminCredentials(ctx context.Context) (bool, error) {
@@ -47,6 +48,16 @@ func (r *adminAuthRepoStub) GetCredentialByHash(ctx context.Context, tokenHash s
 
 func (r *adminAuthRepoStub) ListMFAMethods(ctx context.Context, adminUserID string) ([]*entity.AdminMFAMethod, error) {
 	return r.mfaMethods, nil
+}
+
+func (r *adminAuthRepoStub) DisableMFAMethod(ctx context.Context, methodID string) error {
+	r.disabledMFAMethodID = methodID
+	for _, method := range r.mfaMethods {
+		if method != nil && method.ID == methodID {
+			method.Status = entity.AdminMFAStatusDisabled
+		}
+	}
+	return nil
 }
 
 func (r *adminAuthRepoStub) GetDeviceByID(ctx context.Context, deviceID string) (*entity.AdminDevice, error) {
@@ -195,5 +206,60 @@ func TestAdminAuthServiceBlocksCIDROutsidePolicy(t *testing.T) {
 	}
 	if len(repo.auditActions) == 0 || repo.auditActions[0] != "admin_login_blocked_by_cidr" {
 		t.Fatalf("expected cidr audit event, got %#v", repo.auditActions)
+	}
+}
+
+func TestAdminAuthServiceConsumesRecoveryCode(t *testing.T) {
+	ctx := context.Background()
+	secret := "12345678901234567890123456789012"
+	rawAdminKey := "adm_live_test"
+	recoveryCode := "RECOVERY1234"
+	tokenHash, err := security.HashToken(rawAdminKey, secret)
+	if err != nil {
+		t.Fatalf("hash token: %v", err)
+	}
+
+	repo := &adminAuthRepoStub{
+		admin: &entity.AdminUser{ID: "admin-1", DisplayName: "System Admin"},
+		credential: &entity.AdminAPICredential{
+			ID:          "cred-1",
+			AdminUserID: "admin-1",
+			TokenHash:   tokenHash,
+			ExpiresAt:   time.Now().UTC().Add(time.Hour),
+		},
+		mfaMethods: []*entity.AdminMFAMethod{
+			{
+				ID:              "totp-1",
+				AdminUserID:     "admin-1",
+				Method:          entity.AdminMFATypeTOTP,
+				Status:          entity.AdminMFAStatusActive,
+				SecretEncrypted: "invalid-encrypted-secret",
+			},
+			{
+				ID:          "recovery-1",
+				AdminUserID: "admin-1",
+				Method:      entity.AdminMFATypeRecovery,
+				Status:      entity.AdminMFAStatusActive,
+				CodeHash:    security.HashRecoveryCode(recoveryCode),
+			},
+		},
+	}
+	svc := service.NewAdminAuthService(repo, &fakeSecretProvider{active: security.SecretVersion{Value: secret}}, &config.Config{
+		Security: config.SecurityCfg{
+			AdminSessionTTL:       time.Hour,
+			AdminTrustedDeviceTTL: 30 * 24 * time.Hour,
+		},
+	})
+
+	if _, err := svc.Login(ctx, entity.AdminLoginInput{AdminKey: rawAdminKey, TwoFactorCode: recoveryCode, ClientIP: "127.0.0.1"}); err != nil {
+		t.Fatalf("admin login with recovery code: %v", err)
+	}
+	if repo.disabledMFAMethodID != "recovery-1" {
+		t.Fatalf("expected recovery code to be disabled, got %q", repo.disabledMFAMethodID)
+	}
+
+	_, err = svc.Login(ctx, entity.AdminLoginInput{AdminKey: rawAdminKey, TwoFactorCode: recoveryCode, ClientIP: "127.0.0.1"})
+	if !errors.Is(err, errorx.ErrAdminAuthInvalid) {
+		t.Fatalf("expected consumed recovery code to fail, got %v", err)
 	}
 }

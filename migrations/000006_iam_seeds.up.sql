@@ -55,6 +55,27 @@ INSERT INTO users (
 )
 ON CONFLICT (username) DO NOTHING;
 
+INSERT INTO user_profiles (
+	id,
+	user_id,
+	fullname,
+	avatar_url,
+	bio,
+	timezone,
+	created_at,
+	updated_at
+) VALUES (
+	'99999999999999999999999998',
+	'99999999999999999999999999',
+	'System Root',
+	'',
+	'Bootstrap root account',
+	'UTC',
+	NOW(),
+	NOW()
+)
+ON CONFLICT (user_id) DO NOTHING;
+
 INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id
 FROM users u

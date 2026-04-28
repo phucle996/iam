@@ -12,6 +12,7 @@ type AdminAuthRepository interface {
 	CreateBootstrapAdmin(ctx context.Context, admin *entity.AdminUser, credential *entity.AdminAPICredential, mfaMethods []*entity.AdminMFAMethod) error
 	GetCredentialByHash(ctx context.Context, tokenHash string, now time.Time) (*entity.AdminAPICredential, *entity.AdminUser, error)
 	ListMFAMethods(ctx context.Context, adminUserID string) ([]*entity.AdminMFAMethod, error)
+	DisableMFAMethod(ctx context.Context, methodID string) error
 	GetDeviceByID(ctx context.Context, deviceID string) (*entity.AdminDevice, error)
 	CreateDevice(ctx context.Context, device *entity.AdminDevice) error
 	TrustDevice(ctx context.Context, deviceID string, trustedUntil time.Time) error
